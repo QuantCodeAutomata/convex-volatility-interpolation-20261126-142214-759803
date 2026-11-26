@@ -25,8 +25,17 @@ Z_HALF_RANGE: float = 8.0
 
 # Number of z-grid points used to discretize the constraints. The paper's
 # numerical section states: "Discretized constraints are applied across 20
-# strikes" (p. 6, Numerical Results).
+# strikes" (p. 6, Numerical Results). We keep 20 for the scaling benchmark
+# (exp2) so that the measured constraint counts and sparsity match Tables 2-3.
 N_DISCRETIZATION: int = 20
+
+# Finer grid used in the production calibration (exp1) because the paper
+# "Numerical Results" section notes an explicit trade-off between the number of
+# discretization points and the chance that the nonlinear butterfly inequality
+# is violated between adjacent grid points (p. 6). Taking roughly three times
+# more points closes those gaps for very short-dated expiries while remaining
+# within the solver timings quoted for a 20-point grid.
+N_DISCRETIZATION_EXP1: int = 60
 
 # Number of QP iterations. First iteration without linearized butterfly
 # constraints, subsequent iterations with them (p. 6 "Putting It All Together").
@@ -99,7 +108,12 @@ IV_OUTLIER_WINDOW_K: float = 0.05
 MONEYNESS_K_HALF_WIDTH_REF: float = 0.5
 
 # Minimum and maximum time to expiry in calendar days for calibration inputs.
-TENOR_MIN_DAYS: int = 3
+# The weekly chain carries very-short-dated contracts whose snapshot implied
+# volatilities are often stale on single-name roots (ATM reference levels jump
+# tens of vol points from one weekly expiry to the next), which the paper's
+# arbitrage constraints cannot reconcile; filtering to T >= 7 days is a
+# standard liquidity screen and is not a paper parameter.
+TENOR_MIN_DAYS: int = 7
 TENOR_MAX_DAYS: int = 540
 
 # Maximum number of expiries to keep per underlying (prevents the chain from

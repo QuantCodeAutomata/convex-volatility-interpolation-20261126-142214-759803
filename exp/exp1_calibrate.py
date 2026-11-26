@@ -32,6 +32,7 @@ from src.calibrate import _butterfly_rhs_and_grad, calibrate
 from src.config import (
     LAMBDA_TV,
     N_DISCRETIZATION,
+    N_DISCRETIZATION_EXP1,
     N_ITERATIONS,
     N_KNOTS_DEFAULT,
     UNDERLYINGS,
@@ -207,7 +208,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--underlyings", nargs="+", default=list(UNDERLYINGS))
     parser.add_argument("--n-knots", type=int, default=N_KNOTS_DEFAULT)
-    parser.add_argument("--n-discretization", type=int, default=N_DISCRETIZATION)
+    parser.add_argument("--n-discretization", type=int,
+                        default=N_DISCRETIZATION_EXP1)
     args = parser.parse_args()
     RESULTS.mkdir(exist_ok=True)
 

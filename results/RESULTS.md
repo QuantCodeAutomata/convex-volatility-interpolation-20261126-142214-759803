@@ -41,8 +41,8 @@ Numbers below are from the current `exp1_summary.csv`.
 
 | Asset | Expiries | Quotes | Variables | Constraints | nnz(P) | nnz(A) | Solver time | Avg χ² | Status |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| SPY | 25 | 750 | 550 | 272 | 2 250 | 34 894 | 0.95 s | 0.046 | optimal |
-| QQQ | 24 | 607 | 528 | 261 | 1 821 | 31 112 | 0.80 s | 0.304 | optimal |
+| SPY | 22 | 660 | 484 | 239 | 1 980 | 54 706 | 0.95 s | 0.049 | optimal |
+| QQQ | 22 | 574 | 484 | 239 | 1 722 | 52 918 | 0.99 s | 0.302 | optimal |
 
 The paper does not publish per-expiry χ² values nor absolute objective values
 that can be compared one-to-one. Reproduction of experiment 1 is therefore
@@ -61,15 +61,16 @@ Constraints", pp. 3–5, and "Putting It All Together", p. 6):
 
 Minimum slacks on the dense verification grid are reported in
 `exp1_arbitrage_<asset>.csv`. On the constraint grid used by the QP
-(`N_DISCRETIZATION = 20`, p. 6), all four blocks hold to Clarabel's default
-tolerance. On the finer verification grid, positivity and calendar constraints
-show negative values of order 1e-3 on both assets (consistent with linear
-interpolation between constraint knots), the Lee tail slopes hold strictly,
-and the butterfly block holds strictly on SPY (min slack 1.6e-3) but shows
-isolated negative values on QQQ (min slack −4.24) in deep wings of the shortest
-expiries where the linearized butterfly inequality is enforced only at the
-20 constraint points and the nonlinear right-hand side diverges between them.
-This is why the butterfly row above is marked "partially reproduced".
+(`N_DISCRETIZATION = 60`, denser than the 20 of the paper's numerical
+study on p. 6), all four blocks hold to Clarabel's default tolerance.
+On the verification grid the slacks are: positivity ≥ 0 on both assets;
+calendar violation ≈ −1 × 10⁻³ (equal to the Lee strict-inequality margin
+used in the QP); Lee tail slopes strict (SPY +4.9 × 10⁻², QQQ +2.4 × 10⁻¹);
+interior butterfly +5.8 × 10⁻³ on SPY and −9.8 × 10⁻² on QQQ. The QQQ
+butterfly minimum is a residual nonlinearity error of the linearization in
+the shortest-tenor deep wings between constraint knots; it is small compared
+to typical convexity magnitudes (|c| of order 1) but strictly negative, which
+is why the butterfly row above is marked "partially reproduced".
 
 ## Experiment 2 — Scaling of CVI calibration with Clarabel
 
@@ -89,12 +90,12 @@ Table-3 sweep (10 / 20 / 40 knots per expiry):
 
 | Asset | Knots | Vars | Cons | nnz(P) | nnz(A) | Solver time | Avg χ² |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| SPY | 10 | 300 | 272 | 2 250 | 28 630 | 0.840 s | 0.0497 |
-| SPY | 20 | 550 | 272 | 2 250 | 34 894 | 0.888 s | 0.0459 |
-| SPY | 40 | 1 050 | 272 | 2 250 | 47 785 | 1.083 s | 0.0419 |
-| QQQ | 10 | 288 | 261 | 1 821 | 25 098 | 0.757 s | 2.0932 |
-| QQQ | 20 | 528 | 261 | 1 821 | 31 112 | 0.796 s | 0.3041 |
-| QQQ | 40 | 1 008 | 261 | 1 821 | 43 469 | 0.941 s | 0.2396 |
+| SPY | 10 | 264 | 239 | 1 980 | 25 179 | 0.657 s | 0.0530 |
+| SPY | 20 | 484 | 239 | 1 980 | 30 700 | 0.808 s | 0.0486 |
+| SPY | 40 | 924 | 239 | 1 980 | 42 024 | 0.877 s | 0.0443 |
+| QQQ | 10 | 264 | 239 | 1 722 | 23 353 | 0.676 s | 3.2713 |
+| QQQ | 20 | 484 | 239 | 1 722 | 28 896 | 0.766 s | 0.2828 |
+| QQQ | 40 | 924 | 239 | 1 722 | 40 182 | 0.872 s | 0.2526 |
 
 Paper reference values (Tables 2–3, p. 6): SX5E 0.034 / 0.061 / 0.155 s at
 10 / 20 / 40 knots on 19 expiries and 3 153 quotes; SPX 0.078 / 0.152 /
@@ -102,11 +103,11 @@ Paper reference values (Tables 2–3, p. 6): SX5E 0.034 / 0.061 / 0.155 s at
 
 | Scaling claim (paper, p. 7) | Verdict | Supporting numbers |
 | --- | --- | --- |
-| χ² decreases and plateaus as knot count grows | reproduced | SPY 0.0547 → 0.0425 across 5 → 35 knots, QQQ 0.54 → 0.24 across 5 → 35 knots (`exp2_fig6.csv`) |
-| nnz(A) scales approximately linearly with the number of parameters per expiry | reproduced | SPY 28 630 → 34 894 → 47 785 at 10 → 20 → 40 knots (+22%, +37%) |
+| χ² decreases and plateaus as knot count grows | reproduced | SPY 0.0586 → 0.0449 across 5 → 35 knots; QQQ 0.398 → 0.258 across 5 → 35 knots (`exp2_fig6.csv`) |
+| nnz(A) scales approximately linearly with the number of parameters per expiry | reproduced | SPY 25 179 → 30 700 → 42 024 at 10 → 20 → 40 knots (+22%, +37%) |
 | nnz(P) scales approximately quadratically with the number of parameters | not reproduced | nnz(P) is constant across knot counts because CVXPY canonicalization moves the quadratic cost into auxiliary epigraph variables; see "Deviations from the paper" |
-| Runtime grows roughly linearly in typical ranges | reproduced | SPY 0.84 → 0.89 → 1.08 s at 10 → 20 → 40 knots; QQQ 0.76 → 0.80 → 0.94 s |
-| Solver time remains in the hundredths-to-tenths of a second range | partially reproduced | 0.76–1.08 s on SPY/QQQ versus 0.034–0.467 s for SX5E/SPX in Table 3 (different hardware, modeling-layer overhead) |
+| Runtime grows roughly linearly in typical ranges | reproduced | SPY 0.66 → 0.81 → 0.88 s at 10 → 20 → 40 knots; QQQ 0.68 → 0.77 → 0.87 s |
+| Solver time remains in the hundredths-to-tenths of a second range | partially reproduced | 0.66–0.88 s on SPY/QQQ versus 0.034–0.467 s for SX5E/SPX in Table 3 (different hardware, modeling-layer overhead) |
 
 ## Deviations from the paper
 

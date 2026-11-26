@@ -467,10 +467,19 @@ def load_chain(underlying: str, *, use_cache: bool = True,
 def _snapshot_from_cache(underlying: str, df: pd.DataFrame, meta: dict) -> ChainSnapshot:
     forwards = {pd.Timestamp(k): float(v) for k, v in meta["forwards"].items()}
     tenors = {pd.Timestamp(k): float(v) for k, v in meta["tenors_years"].items()}
+    # Re-apply the current tenor band so configuration changes to
+    # TENOR_MIN_DAYS / TENOR_MAX_DAYS take effect without re-fetching.
+    tenor_min_years = TENOR_MIN_DAYS / 365.0
+    tenor_max_years = TENOR_MAX_DAYS / 365.0
     quotes_by_expiry: dict[pd.Timestamp, pd.DataFrame] = {}
     for expiry, grp in df.groupby("expiration"):
         key = pd.Timestamp(expiry)
+        T = tenors.get(key)
+        if T is None or not (tenor_min_years <= T <= tenor_max_years):
+            continue
         quotes_by_expiry[key] = grp.reset_index(drop=True)
+    forwards = {k: v for k, v in forwards.items() if k in quotes_by_expiry}
+    tenors = {k: v for k, v in tenors.items() if k in quotes_by_expiry}
     return ChainSnapshot(
         underlying=underlying,
         as_of_date=pd.Timestamp(meta["as_of_date"]).normalize(),
