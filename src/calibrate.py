@@ -308,9 +308,15 @@ def calibrate(
         fixed_constraints.append(p_vars[j][2] == 0.0)
         fixed_constraints.append(p_vars[j][-1] == 0.0)
 
-    # Positivity of variance on the discretization grid for the first expiry.
-    B_v0, B_vp0, _ = op_disc[0]
-    fixed_constraints.append(B_v0 @ p_vars[0] >= 0.0)
+    # Positivity of variance on the discretization grid. The paper imposes
+    # this on the first expiry only, arguing that the calendar constraints
+    # propagate positivity to subsequent ones ("Non-Arbitrage-Related
+    # Constraints", p. 3). With the finite discretization grid used here
+    # the implication can fail numerically, so positivity is enforced on
+    # every expiry; the extra constraints are J * n_disc inequalities.
+    for j in range(J):
+        B_v_j, _, _ = op_disc[j]
+        fixed_constraints.append(B_v_j @ p_vars[j] >= 0.0)
     # Positivity in the tails (dv/dz <= 0 at z_0, >= 0 at z_{n-1}) for all j.
     for j in range(J):
         _, _, _ = op_edges[j]
@@ -367,6 +373,7 @@ def calibrate(
     last_params: list[np.ndarray] | None = warm_start_params
     nnz_P, nnz_A, n_constraints_final = 0, 0, 0
     objective_value = float("nan")
+    iterations_done = 0
 
     for it in range(max(1, n_iterations)):
         extra = []
@@ -394,14 +401,30 @@ def calibrate(
 
         problem = cp.Problem(objective, fixed_constraints + extra)
         t0 = time.perf_counter()
-        problem.solve(solver=solver, verbose=verbose)
+        try:
+            problem.solve(solver=solver, verbose=verbose)
+            iter_status = problem.status
+        except cp.error.SolverError as exc:
+            iter_status = f"solver_error:{exc}"
         solver_time_total += time.perf_counter() - t0
-        last_status = problem.status
-        if last_status not in ("optimal", "optimal_inaccurate"):
-            raise RuntimeError(f"CVXPY/{solver} returned status {last_status}")
-
+        ok = iter_status in ("optimal", "optimal_inaccurate")
+        # A linearized butterfly block can occasionally make the QP numerically
+        # infeasible for an iterate it was built from. The paper says "one or
+        # a few iterations" suffice (p. 6); when a refinement pass fails we
+        # keep the previous iterate as the final one rather than aborting.
+        if not ok:
+            if it == 0 or last_params is None:
+                raise RuntimeError(
+                    f"CVXPY/{solver} returned status {iter_status} on the "
+                    f"initial pass; no usable iterate available"
+                )
+            iterations_done = it
+            last_status = f"{last_status} (refinement halted: {iter_status})"
+            break
+        last_status = iter_status
         last_params = [np.asarray(p.value, dtype=float) for p in p_vars]
         objective_value = float(problem.value)
+        iterations_done = it + 1
 
         # Sparsity stats from the last solve.
         try:
@@ -446,7 +469,7 @@ def calibrate(
         n_constraints_final=int(n_constraints_final),
         nnz_P=int(nnz_P),
         nnz_A=int(nnz_A),
-        iterations_done=int(max(1, n_iterations)),
+        iterations_done=int(iterations_done),
         chi2_per_expiry=chi2_list,
         status=str(last_status),
     )
