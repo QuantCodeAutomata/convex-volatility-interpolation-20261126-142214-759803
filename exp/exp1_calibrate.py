@@ -33,7 +33,7 @@ from src.config import (
     LAMBDA_TV,
     N_DISCRETIZATION,
     N_DISCRETIZATION_EXP1,
-    N_ITERATIONS,
+    N_ITERATIONS_EXP1,
     N_KNOTS_DEFAULT,
     UNDERLYINGS,
     V_REF_FLOOR,
@@ -155,7 +155,7 @@ def plot_smiles(result, underlying: str, out_path: Path) -> None:
             ax.legend(loc="best", fontsize=8)
     fig.suptitle(
         f"CVI fitted smile vs market mid IV — {underlying}  "
-        f"(n_knots={len(result.knots)}, iterations={N_ITERATIONS})"
+        f"(n_knots={len(result.knots)}, iterations={N_ITERATIONS_EXP1})"
     )
     fig.tight_layout()
     fig.savefig(out_path, dpi=120)
@@ -170,7 +170,7 @@ def run_one(underlying: str, n_knots: int, n_discretization: int) -> dict:
     knots = make_knot_grid(n_knots)
     result = calibrate(expiries, knots,
                        lambda_tv=LAMBDA_TV,
-                       n_iterations=N_ITERATIONS,
+                       n_iterations=N_ITERATIONS_EXP1,
                        n_discretization=n_discretization)
 
     # Per-expiry table.

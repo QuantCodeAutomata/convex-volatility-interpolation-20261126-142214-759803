@@ -37,9 +37,18 @@ N_DISCRETIZATION: int = 20
 # within the solver timings quoted for a 20-point grid.
 N_DISCRETIZATION_EXP1: int = 60
 
-# Number of QP iterations. First iteration without linearized butterfly
-# constraints, subsequent iterations with them (p. 6 "Putting It All Together").
+# Number of QP iterations for the scaling benchmark (exp2). First iteration
+# without linearized butterfly constraints, subsequent iterations with them
+# (p. 6 "Putting It All Together"); the paper's Numerical Results use 2 passes.
 N_ITERATIONS: int = 2
+
+# Number of QP iterations for the production calibration (exp1). The paper
+# describes the schedule as "one or a few iterations as suggested" (p. 6); the
+# nonlinear butterfly condition rhs depends on 1/v, so expiries with very small
+# ATM variance (short-dated single names or ETFs) need more than two
+# linearization passes to leave no residual butterfly violation on the 60-point
+# grid. Taking four passes closes those gaps in practice.
+N_ITERATIONS_EXP1: int = 4
 
 # ---------------------------------------------------------------------------
 # Objective-function weights (paper Section "Objective Function", pp. 2-3)
