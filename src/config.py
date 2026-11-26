@@ -67,10 +67,21 @@ BENCH_KNOT_COUNTS_FIG6: tuple[int, ...] = tuple(range(5, 36, 5))
 # Data acquisition (universe, moneyness filter, tenor filter)
 # ---------------------------------------------------------------------------
 
+# Base URL of the Massive REST API used by the option-chain loader.
+MASSIVE_BASE: str = "https://api.massive.com"
+
 # Underlyings analysed. SPY is an American-exercise ETF option proxy for SPX
 # (European index option quotes require an index-options plan not available to
 # this entitlement): see results/RESULTS.md for the deviation note.
 UNDERLYINGS: tuple[str, ...] = ("SPY", "QQQ")
+
+# Synthetic half-spread (in volatility points) around the mid IV, used because
+# the NBBO is not available on the active Massive plan. Half-spread grows with
+# |z| so wing quotes are wider than ATM quotes, as commonly observed. Not
+# specified in the paper; see results/RESULTS.md under "Deviations from the
+# paper".
+SPREAD_HALF_WIDTH_ATM: float = 0.005
+SPREAD_HALF_WIDTH_WING_SLOPE: float = 0.004
 
 # Half-width of the moneyness band k = log(K/F), used to filter contracts
 # before fetching individual NBBO quotes. The paper's z range is [-8, 8];
