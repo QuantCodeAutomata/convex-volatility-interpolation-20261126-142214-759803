@@ -384,18 +384,28 @@ def calibrate(
                 B_v_d, B_vp_d, B_vpp_d = op_disc[j]
                 v_ref = B_v_d @ last_params[j]
                 s_ref = (B_vp_d @ last_params[j]) / ex.v_star
+                # Points where the current iterate is at or below the positivity
+                # floor are dominated by the positivity constraint and would give
+                # the butterfly linearization ill-conditioned gradients; skip.
+                keep = v_ref > 2.0 * V_REF_FLOOR
+                if not keep.any():
+                    continue
+                z_sub = z_disc[keep]
                 f_ref, df_dv, df_ds = _butterfly_rhs_and_grad(
-                    z_disc, v_ref, s_ref, ex.v_star, ex.tenor_years
+                    z_sub, v_ref[keep], s_ref[keep], ex.v_star, ex.tenor_years
                 )
+                B_v_s = B_v_d[keep]
+                B_vp_s = B_vp_d[keep]
+                B_vpp_s = B_vpp_d[keep]
                 # c_eval >= f_ref + df_dv (v_eval - v_ref) + df_ds (s_eval - s_ref)
                 # with c_eval = (1/v*) B_vpp @ p, v_eval = B_v @ p, s_eval = (1/v*) B_vp @ p.
-                c_expr = (1.0 / ex.v_star) * (B_vpp_d @ p_vars[j])
-                v_expr = B_v_d @ p_vars[j]
-                s_expr = (1.0 / ex.v_star) * (B_vp_d @ p_vars[j])
+                c_expr = (1.0 / ex.v_star) * (B_vpp_s @ p_vars[j])
+                v_expr = B_v_s @ p_vars[j]
+                s_expr = (1.0 / ex.v_star) * (B_vp_s @ p_vars[j])
                 rhs = (
                     f_ref
-                    + cp.multiply(df_dv, v_expr - v_ref)
-                    + cp.multiply(df_ds, s_expr - s_ref)
+                    + cp.multiply(df_dv, v_expr - v_ref[keep])
+                    + cp.multiply(df_ds, s_expr - s_ref[keep])
                 )
                 extra.append(c_expr >= rhs)
 

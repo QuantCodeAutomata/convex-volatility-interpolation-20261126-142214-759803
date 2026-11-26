@@ -83,6 +83,15 @@ UNDERLYINGS: tuple[str, ...] = ("SPY", "QQQ")
 SPREAD_HALF_WIDTH_ATM: float = 0.005
 SPREAD_HALF_WIDTH_WING_SLOPE: float = 0.004
 
+# Maximum deviation (in volatility points) of a single IV from the local smile
+# median before the quote is dropped as a stale tick or an unresolved put/call
+# discrepancy. Not a paper parameter; introduced because the provider's
+# snapshot IV sometimes differs between the put and the call at the same
+# (K, T) by several vol points on short-tenor single-name options.
+IV_OUTLIER_HALF_WIDTH: float = 0.05
+# Window (in log-strike units) used to compute the local median for the filter.
+IV_OUTLIER_WINDOW_K: float = 0.05
+
 # Half-width of the moneyness band k = log(K/F), used to filter contracts
 # before fetching individual NBBO quotes. The paper's z range is [-8, 8];
 # in k terms that is ±8 * sigma_star * sqrt(T). We keep |k| <= 0.5 for short

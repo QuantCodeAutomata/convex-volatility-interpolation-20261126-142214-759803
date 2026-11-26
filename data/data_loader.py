@@ -35,6 +35,8 @@ from dotenv import load_dotenv
 
 from src.config import (
     DIVIDEND_YIELD_DEFAULT,
+    IV_OUTLIER_HALF_WIDTH,
+    IV_OUTLIER_WINDOW_K,
     MASSIVE_BASE,
     MAX_CONTRACTS_PER_EXPIRY,
     MAX_EXPIRIES_PER_UNDERLYING,
@@ -253,6 +255,26 @@ def _implied_forward(group: pd.DataFrame, spot: float, tenor_years: float,
     return float(F_est)
 
 
+def _iv_outlier_mask(iv: np.ndarray, k: np.ndarray) -> np.ndarray:
+    """Return a boolean mask that drops IVs far from the local-strike median.
+
+    For each quote i, the median IV is computed over all quotes within
+    ``IV_OUTLIER_WINDOW_K`` in log-strike. Quotes whose IV differs from that
+    local median by more than ``IV_OUTLIER_HALF_WIDTH`` (in vol points) are
+    rejected. A quote without enough neighbors (fewer than 3) is kept.
+    """
+    n = iv.size
+    keep = np.ones(n, dtype=bool)
+    for i in range(n):
+        window = np.abs(k - k[i]) <= IV_OUTLIER_WINDOW_K
+        if int(window.sum()) < 3:
+            continue
+        med = float(np.median(iv[window]))
+        if abs(float(iv[i]) - med) > IV_OUTLIER_HALF_WIDTH:
+            keep[i] = False
+    return keep
+
+
 def _synthesize_bid_ask(iv_mid: np.ndarray, z: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Synthesize ``(sigma_bid, sigma_ask)`` around the mid implied volatility.
 
@@ -310,15 +332,32 @@ def _assemble_expiries(
         sigma_bid, sigma_ask = _synthesize_bid_ask(grp_f["iv"].to_numpy(), z_f)
         grp_f["sigma_bid"] = sigma_bid
         grp_f["sigma_ask"] = sigma_ask
-        # For each strike, keep the tightest quote in volatility across call and put.
-        grp_f["spread"] = grp_f["sigma_ask"] - grp_f["sigma_bid"]
+        # For each strike, keep one quote per strike, preferring the OTM leg
+        # (call for K >= F, put for K < F) to minimize American early-exercise
+        # premium bias in the computed implied volatility.
+        strikes_arr = grp_f["strike"].to_numpy(dtype=float)
+        is_call = grp_f["contract_type"].to_numpy() == "call"
+        prefer_call = strikes_arr >= F
+        # priority: 0 = preferred leg (OTM), 1 = other leg.
+        grp_f["_priority"] = np.where(is_call == prefer_call, 0, 1)
         grp_f = (
-            grp_f.sort_values("spread")
+            grp_f.sort_values(["strike", "_priority"])
             .drop_duplicates(subset=["strike"], keep="first")
-            .drop(columns=["spread"])
+            .drop(columns=["_priority"])
             .sort_values("strike")
             .reset_index(drop=True)
         )
+        # Drop quotes whose IV differs from the local-strike median by more
+        # than ``IV_OUTLIER_HALF_WIDTH`` vol points: these are stale ticks or
+        # unresolved put/call discrepancies that cannot be fit by any smooth
+        # smile.
+        if len(grp_f) >= 5:
+            iv_arr = grp_f["iv"].to_numpy()
+            k_arr = np.log(grp_f["strike"].to_numpy() / F)
+            keep_mask = _iv_outlier_mask(iv_arr, k_arr)
+            grp_f = grp_f.loc[keep_mask].reset_index(drop=True)
+            if grp_f.empty:
+                continue
         if len(grp_f) > MAX_CONTRACTS_PER_EXPIRY:
             dist = np.abs(np.log(grp_f["strike"].to_numpy() / F))
             keep = np.argsort(dist)[:MAX_CONTRACTS_PER_EXPIRY]
