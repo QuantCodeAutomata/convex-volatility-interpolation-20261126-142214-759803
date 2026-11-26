@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+
+# Environment
+.env
+venv/
+.venv/
+
+# Data (never commit raw or derived market-data time series)
+data/cache/
+*.parquet
+*.feather
+*.arrow
+*.pkl
+*.npy
+*.npz
+*.h5
+*.html
+
+# OS
+.DS_Store
